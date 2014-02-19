@@ -10,9 +10,13 @@ import motmot.FlyMovieFormat.FlyMovieFormat as FlyMovieFormat
 # For a tutorial on Chaco and Traits, see
 # http://code.enthought.com/projects/chaco/docs/html/user_manual/tutorial_2.html
 
-def worker_func(save_info):
-    filename = save_info['fname_prefix'] + time.strftime( '%Y%m%d_%H%M%S.fmf' )
-    print 'saving to',filename
+def worker_func(save_info,have_ros):
+    if have_ros:
+        import rospy
+    filename = save_info['fname_prefix'] + time.strftime( '%Y%m%d_%H%M%S.fmf',
+                                                          time.localtime(save_info['start_time']))
+    if have_ros:
+        rospy.loginfo('saving buffered FMF file to %r'%(filename,))
     fly_movie = FlyMovieFormat.FlyMovieSaver(filename,
                                              version=3,
                                              format='MONO8',
@@ -23,14 +27,15 @@ def worker_func(save_info):
         stamp = save_info['stamps'][i]
         fly_movie.add_frame(frame,stamp)
     fly_movie.close()
-    print 'saved',filename
+    if have_ros:
+        rospy.loginfo('done saving buffered FMF file')
 
 class FmfSaver(traited_plugin.HasTraits_FViewPlugin):
     plugin_name = 'ROS FMF saver'
 
-    have_ros     = traits.Bool(False)    
-    frames_buffered = traits.Int(0)    
-    buffer_size     = traits.Int(0)    
+    have_ros     = traits.Bool(False)
+    frames_buffered = traits.Int(0)
+    buffer_size     = traits.Int(0)
 
     # set upon camera connection
     pixel_format = traits.String(None,transient=True)
@@ -119,7 +124,7 @@ class FmfSaver(traited_plugin.HasTraits_FViewPlugin):
         self.frames_buffered = 0
         self.buffer_size = 0
 
-        save_worker = threading.Thread(target=worker_func, args=(q,))
+        save_worker = threading.Thread(target=worker_func, args=(q,self.have_ros))
         save_worker.start()
 
     def camera_starting_notification(self,cam_id,
