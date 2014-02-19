@@ -85,9 +85,13 @@ class FmfSaver(traited_plugin.HasTraits_FViewPlugin):
             new_buf = np.empty( alloc_size, dtype=np.uint8 )
             stamps = np.empty( (req.allocate_buffer_size.data,), dtype=np.float )
         except MemoryError as err:
+            self.buffer_size = 0
+
             resp.started_ok.data = False
             resp.error_message.data = str(err)
             return resp
+
+        self.buffer_size = new_buf.shape[0]
 
         now = time.time()
         with self._save_lock:
@@ -111,6 +115,10 @@ class FmfSaver(traited_plugin.HasTraits_FViewPlugin):
         with self._save_lock:
             q = self._save_info # shorthand
             self._save_info = None # no more saving in main thread
+
+        self.frames_buffered = 0
+        self.buffer_size = 0
+
         save_worker = threading.Thread(target=worker_func, args=(q,))
         save_worker.start()
 
@@ -129,6 +137,7 @@ class FmfSaver(traited_plugin.HasTraits_FViewPlugin):
 
         initiate_stop = False
 
+        saved_count = None
         with self._save_lock:
             q = self._save_info # shorthand
             if q is not None:
@@ -152,6 +161,10 @@ class FmfSaver(traited_plugin.HasTraits_FViewPlugin):
                 if (q['saved_count']+1) >= bigbuf.shape[0]:
                     # cannot save more frames, save what we have
                     initiate_stop = True
+
+        if saved_count is not None:
+            self.frames_buffered = saved_count
+
         if initiate_stop:
             self.initiate_stop_saving()
                 
