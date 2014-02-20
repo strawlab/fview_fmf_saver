@@ -148,7 +148,8 @@ class FmfSaver(traited_plugin.HasTraits_FViewPlugin):
                                      max_width=None,
                                      max_height=None):
         self.pixel_format = pixel_format
-        assert self.pixel_format=='MONO8', 'Only MONO8 pixels currently supported'
+        if self.pixel_format!='MONO8':
+            raise ValueError('Only MONO8 pixels currently supported')
         self.width = max_width
         self.height = max_height
 
