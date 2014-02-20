@@ -72,6 +72,22 @@ class FmfSaver(traited_plugin.HasTraits_FViewPlugin):
             import ros_fview_fmf_saver.srv
             rospy.Service('~start_saving_fmf', ros_fview_fmf_saver.srv.StartSavingFMF, self.start_saving)
 
+    def get_buffer_allocator(self,cam_id):
+        return self._get_allocated_buffer
+
+    def _get_allocated_buffer(self,w,h):
+        allocate_new = False
+        with self._save_lock:
+            if self._save_info is None:
+                allocate_new = True
+            else:
+                bigbuf = self._save_info['buffer']
+                c = self._save_info['saved_count']
+                buf = bigbuf[c] # view into big array
+        if allocate_new:
+            buf = np.empty( (h,w), dtype=np.uint8 )
+        return buf
+
     def start_saving(self, req):
         # FIXME: why do I have to do this here? ----
         import ros_fview_fmf_saver.srv
@@ -146,11 +162,9 @@ class FmfSaver(traited_plugin.HasTraits_FViewPlugin):
         with self._save_lock:
             q = self._save_info # shorthand
             if q is not None:
-                newbuf = np.array(buf) # ensure this is a standard numpy array
 
                 frame_count = q['frame_count']
                 nth_frame = q['nth_frame']
-                bigbuf = q['buffer']
                 saved_count = q['saved_count']
                 if q['save_framenumbers_as_timestamps']:
                     stamp_value = framenumber
@@ -158,12 +172,11 @@ class FmfSaver(traited_plugin.HasTraits_FViewPlugin):
                     stamp_value = timestamp
 
                 if (frame_count%nth_frame==0):
-                    bigbuf[saved_count] = newbuf # copy data
                     q['stamps'][saved_count] = stamp_value
                     q['saved_count'] = saved_count + 1
                 q['frame_count'] = frame_count + 1
 
-                if (q['saved_count']+1) >= bigbuf.shape[0]:
+                if (q['saved_count']+1) >= q['buffer'].shape[0]:
                     # cannot save more frames, save what we have
                     initiate_stop = True
 
