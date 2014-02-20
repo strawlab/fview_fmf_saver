@@ -7,9 +7,6 @@ import traits.api as traits
 import threading
 import motmot.FlyMovieFormat.FlyMovieFormat as FlyMovieFormat
 
-# For a tutorial on Chaco and Traits, see
-# http://code.enthought.com/projects/chaco/docs/html/user_manual/tutorial_2.html
-
 def worker_func(save_info,have_ros):
     if have_ros:
         import rospy
