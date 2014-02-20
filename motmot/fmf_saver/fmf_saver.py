@@ -67,7 +67,7 @@ class FmfSaver(traited_plugin.HasTraits_FViewPlugin):
             import rospy
             import ros_fview_fmf_saver
             import ros_fview_fmf_saver.srv
-            rospy.Service('~start_saving_fmf', ros_fview_fmf_saver.srv.StartSavingFMF, self.start_saving)
+            rospy.Service('~start_saving_fmf', ros_fview_fmf_saver.srv.StartSavingFMF, self.start_saving_ros)
 
     def get_buffer_allocator(self,cam_id):
         return self._get_allocated_buffer
@@ -85,7 +85,7 @@ class FmfSaver(traited_plugin.HasTraits_FViewPlugin):
             buf = np.empty( (h,w), dtype=np.uint8 )
         return buf
 
-    def start_saving(self, req):
+    def start_saving_ros(self, req):
         # FIXME: why do I have to do this here? ----
         import ros_fview_fmf_saver.srv
         import std_msgs.msg
@@ -97,37 +97,39 @@ class FmfSaver(traited_plugin.HasTraits_FViewPlugin):
             resp.started_ok.data = False
             resp.error_message.data = 'camera not started'
             return resp
+        self.start_saving( req.allocate_buffer_size.data,
+                           req.fname_prefix.data,
+                           req.nth_frame.data,
+                           req.save_framenumbers_as_timestamps.data,
+                           )
+        resp.started_ok.data = True
+        resp.error_message.data = ''
+        return resp
 
-        alloc_size = req.allocate_buffer_size.data,self.height,self.width
-        try:
-            new_buf = np.empty( alloc_size, dtype=np.uint8 )
-            stamps = np.empty( (req.allocate_buffer_size.data,), dtype=np.float )
-        except MemoryError as err:
-            self.buffer_size = 0
-
-            resp.started_ok.data = False
-            resp.error_message.data = str(err)
-            return resp
-
+    def start_saving(self,
+                     allocate_buffer_size,
+                     fname_prefix,
+                     nth_frame,
+                     save_framenumbers_as_timestamps,
+                     ):
+        alloc_size = allocate_buffer_size,self.height,self.width
+        new_buf = np.empty( alloc_size, dtype=np.uint8 ) # could attempt to recover from MemoryErrors here.
+        stamps = np.empty( (allocate_buffer_size,), dtype=np.float )
         self.buffer_size = new_buf.shape[0]
 
         now = time.time()
         with self._save_lock:
-            self._save_info = {'fname_prefix':req.fname_prefix.data,
+            self._save_info = {'fname_prefix':fname_prefix,
                                'buffer':new_buf,
                                'stamps':stamps,
-                               'nth_frame':req.nth_frame.data,
-                               'save_framenumbers_as_timestamps':req.save_framenumbers_as_timestamps.data,
+                               'nth_frame':nth_frame,
+                               'save_framenumbers_as_timestamps':save_framenumbers_as_timestamps,
                                'saved_count':0,
                                'frame_count':0,
                                'start_time' : now,
                                }
             q = self._save_info
             bigbuf = q['buffer']
-
-        resp.started_ok.data = True
-        resp.error_message.data = ''
-        return resp
 
     def initiate_stop_saving(self):
         with self._save_lock:
