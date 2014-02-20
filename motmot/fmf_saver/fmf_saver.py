@@ -186,5 +186,5 @@ class FmfSaver(traited_plugin.HasTraits_FViewPlugin):
 
         if initiate_stop:
             self.initiate_stop_saving()
-                
+
         return draw_points, draw_linesegs
